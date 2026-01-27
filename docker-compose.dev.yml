@@ -1,0 +1,32 @@
+# Docker Compose for local development (without Docker)
+# Use this for development with hot-reloading
+
+services:
+  # ============================================================================
+  # PostgreSQL Database Only
+  # ============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: ibkr-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ibkr_dev
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data_dev:
+
+networks:
+  default:
+    name: ibkr-dev-network
