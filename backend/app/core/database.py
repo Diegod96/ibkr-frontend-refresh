@@ -27,6 +27,7 @@ class Database:
             pool_pre_ping=True,
             pool_size=5,
             max_overflow=10,
+            connect_args={"ssl": "require"} if "supabase" in database_url else {},
         )
         self.async_session = async_sessionmaker(
             self.engine,

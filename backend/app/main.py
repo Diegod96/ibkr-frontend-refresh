@@ -16,8 +16,14 @@ from app.core.database import database
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for startup and shutdown."""
-    # Startup
-    await database.connect()
+    # Startup - try to connect to database but don't block if it fails
+    try:
+        import asyncio
+        await asyncio.wait_for(database.connect(), timeout=10.0)
+        print("Database connected successfully")
+    except Exception as e:
+        print(f"Database connection warning: {e}")
+        print("Application will continue without database verification")
     yield
     # Shutdown
     await database.disconnect()
