@@ -6,7 +6,6 @@ CRUD operations for Slice management.
 
 from decimal import Decimal
 from typing import List, Optional
-from uuid import UUID
 
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,14 +20,17 @@ class SliceService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def _verify_pie_ownership(self, pie_id: UUID, portfolio_id: UUID) -> bool:
+    async def _verify_pie_ownership(self, pie_id: str, portfolio_id: str) -> bool:
         """Verify that a pie belongs to the portfolio."""
+        # IDs are expected to be strings
         query = select(Pie.id).where(Pie.id == pie_id, Pie.portfolio_id == portfolio_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none() is not None
 
-    async def get_by_id(self, slice_id: UUID, portfolio_id: UUID) -> Optional[Slice]:
+    async def get_by_id(self, slice_id: str, portfolio_id: str) -> Optional[Slice]:
         """Get a slice by ID, ensuring it belongs to a pie owned by the portfolio."""
+        # IDs are expected to be strings
+
         query = (
             select(Slice)
             .join(Pie)
@@ -39,14 +41,16 @@ class SliceService:
 
     async def get_all_by_pie(
         self,
-        pie_id: UUID,
-        portfolio_id: UUID,
+        pie_id: str,
+        portfolio_id: str,
         include_inactive: bool = False
     ) -> List[Slice]:
         """Get all slices for a pie."""
         # First verify pie ownership
         if not await self._verify_pie_ownership(pie_id, portfolio_id):
             return []
+
+        # pie_id should be a string
 
         query = (
             select(Slice)
@@ -60,8 +64,10 @@ class SliceService:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def get_total_weight(self, pie_id: UUID) -> Decimal:
+    async def get_total_weight(self, pie_id: str) -> Decimal:
         """Get total weight of all active slices in a pie."""
+        # pie_id expected to be string
+
         query = (
             select(Slice.target_weight)
             .where(Slice.pie_id == pie_id, Slice.is_active == True)
@@ -72,8 +78,8 @@ class SliceService:
 
     async def create(
         self,
-        pie_id: UUID,
-        portfolio_id: UUID,
+        pie_id: str,
+        portfolio_id: str,
         symbol: str,
         target_weight: Decimal,
         name: Optional[str] = None,
@@ -93,6 +99,8 @@ class SliceService:
             )
 
         # Get the next display order
+        # pie_id expected to be string
+
         max_order_query = (
             select(Slice.display_order)
             .where(Slice.pie_id == pie_id)
@@ -117,8 +125,8 @@ class SliceService:
 
     async def update(
         self,
-        slice_id: UUID,
-        portfolio_id: UUID,
+        slice_id: str,
+        portfolio_id: str,
         symbol: Optional[str] = None,
         name: Optional[str] = None,
         target_weight: Optional[Decimal] = None,
@@ -154,7 +162,7 @@ class SliceService:
         await self.db.refresh(slice_obj)
         return slice_obj
 
-    async def delete(self, slice_id: UUID, portfolio_id: UUID) -> bool:
+    async def delete(self, slice_id: str, portfolio_id: str) -> bool:
         """Delete a slice."""
         slice_obj = await self.get_by_id(slice_id, portfolio_id)
         if not slice_obj:
@@ -164,13 +172,16 @@ class SliceService:
         result = await self.db.execute(query)
         return result.rowcount > 0
 
-    async def reorder(self, pie_id: UUID, portfolio_id: UUID, slice_ids: List[UUID]) -> bool:
+    async def reorder(self, pie_id: str, portfolio_id: str, slice_ids: List[str]) -> bool:
         """Reorder slices by updating their display_order."""
         # Verify pie ownership
         if not await self._verify_pie_ownership(pie_id, portfolio_id):
             return False
+        # pie_id expected to be string
 
         for index, slice_id in enumerate(slice_ids):
+            # slice_id expected to be a string
+
             query = (
                 update(Slice)
                 .where(Slice.id == slice_id, Slice.pie_id == pie_id)

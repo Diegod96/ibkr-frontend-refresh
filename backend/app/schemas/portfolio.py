@@ -7,7 +7,7 @@ Pydantic schemas for portfolio CRUD operations.
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from uuid import UUID
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -42,7 +42,7 @@ class PortfolioResponse(PortfolioBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID = Field(..., description="Portfolio ID")
+    id: str = Field(..., description="Portfolio ID")
     user_id: str = Field(..., description="User ID")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")

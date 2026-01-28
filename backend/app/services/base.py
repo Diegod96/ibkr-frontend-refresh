@@ -5,7 +5,6 @@ Generic base service providing common CRUD operations.
 """
 
 from typing import Generic, List, Optional, Type, TypeVar
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +19,7 @@ class BaseService(Generic[ModelType]):
         self.session = session
         self.model = model
 
-    async def get_by_id(self, id: UUID) -> Optional[ModelType]:
+    async def get_by_id(self, id: str) -> Optional[ModelType]:
         """Get a record by ID."""
         query = select(self.model).where(self.model.id == id)
         result = await self.session.execute(query)
@@ -40,7 +39,7 @@ class BaseService(Generic[ModelType]):
         await self.session.refresh(instance)
         return instance
 
-    async def update(self, id: UUID, **kwargs) -> Optional[ModelType]:
+    async def update(self, id: str, **kwargs) -> Optional[ModelType]:
         """Update a record."""
         instance = await self.get_by_id(id)
         if not instance:
@@ -53,7 +52,7 @@ class BaseService(Generic[ModelType]):
         await self.session.refresh(instance)
         return instance
 
-    async def delete(self, id: UUID) -> bool:
+    async def delete(self, id: str) -> bool:
         """Delete a record."""
         instance = await self.get_by_id(id)
         if not instance:

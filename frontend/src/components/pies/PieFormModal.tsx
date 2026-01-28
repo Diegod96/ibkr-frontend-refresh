@@ -74,6 +74,7 @@ export function PieFormModal({
         description: description || undefined,
         color,
         target_allocation: allocation,
+        // parent component (PortfoliosClient) will inject selected portfolio id if needed
       });
       onClose();
     } catch (err) {

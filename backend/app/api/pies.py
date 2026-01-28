@@ -5,8 +5,7 @@ CRUD endpoints for managing pies.
 """
 
 from decimal import Decimal
-from typing import List
-from uuid import UUID
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +25,7 @@ from app.services.portfolio_service import PortfolioService
 router = APIRouter(prefix="/pies", tags=["pies"])
 
 
-async def _get_user_default_portfolio(user_id: UUID, db: AsyncSession) -> str:
+async def _get_user_default_portfolio(user_id: str, db: AsyncSession) -> str:
     """Get or create a default portfolio for the user."""
     portfolio_service = PortfolioService(db)
     portfolios = await portfolio_service.get_user_portfolios(str(user_id))
@@ -44,11 +43,15 @@ async def _get_user_default_portfolio(user_id: UUID, db: AsyncSession) -> str:
     return str(default_portfolio.id)
 
 
-def _pie_to_response(pie) -> PieWithSlicesResponse:
+def _pie_to_response(pie, user_id: Optional[str] = None) -> PieWithSlicesResponse:
     """Convert a Pie model to response schema."""
+    # Ensure user_id is a string for the response schema
+    # user_id is expected to already be a string
+
     return PieWithSlicesResponse(
         id=pie.id,
         portfolio_id=pie.portfolio_id,
+        user_id=user_id or None,
         name=pie.name,
         description=pie.description,
         color=pie.color,
@@ -83,30 +86,43 @@ def _pie_to_response(pie) -> PieWithSlicesResponse:
 async def get_pies(
     user_id: CurrentUserId,
     include_inactive: bool = False,
+    portfolio_id: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Get all pies for the current user."""
     service = PieService(db)
-    portfolio_id = await _get_user_default_portfolio(user_id, db)
-    pies = await service.get_all_by_portfolio(UUID(portfolio_id), include_inactive=include_inactive)
-    total_allocation = await service.get_total_allocation(UUID(portfolio_id))
+    # If portfolio_id provided in query, validate ownership
+    if portfolio_id is not None:
+        portfolio_service = PortfolioService(db)
+        user_portfolios = await portfolio_service.get_user_portfolios(str(user_id))
+        if not any(p.id == portfolio_id for p in user_portfolios):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Portfolio does not belong to the user",
+            )
+        selected_portfolio = portfolio_id
+    else:
+        selected_portfolio = await _get_user_default_portfolio(user_id, db)
+
+    pies = await service.get_all_by_portfolio(selected_portfolio, include_inactive=include_inactive)
+    total_allocation = await service.get_total_allocation(selected_portfolio)
     
     return PieListResponse(
-        pies=[_pie_to_response(p) for p in pies],
+        pies=[_pie_to_response(p, user_id=user_id) for p in pies],
         total_allocation=total_allocation,
     )
 
 
 @router.get("/{pie_id}", response_model=PieWithSlicesResponse)
 async def get_pie(
-    pie_id: UUID,
+    pie_id: str,
     user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific pie by ID."""
     service = PieService(db)
     portfolio_id = await _get_user_default_portfolio(user_id, db)
-    pie = await service.get_by_id(pie_id, UUID(portfolio_id))
+    pie = await service.get_by_id(pie_id, portfolio_id)
     
     if not pie:
         raise HTTPException(
@@ -114,7 +130,7 @@ async def get_pie(
             detail="Pie not found",
         )
     
-    return _pie_to_response(pie)
+    return _pie_to_response(pie, user_id=user_id)
 
 
 @router.post("", response_model=PieWithSlicesResponse, status_code=status.HTTP_201_CREATED)
@@ -125,10 +141,22 @@ async def create_pie(
 ):
     """Create a new pie."""
     service = PieService(db)
-    portfolio_id = await _get_user_default_portfolio(user_id, db)
-    
+    # Determine portfolio: use provided portfolio_id or user's default
+    if data.portfolio_id:
+        # validate the portfolio belongs to the user
+        portfolio_service = PortfolioService(db)
+        user_portfolios = await portfolio_service.get_user_portfolios(str(user_id))
+        if not any(p.id == data.portfolio_id for p in user_portfolios):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Portfolio does not belong to the user",
+            )
+        portfolio_id = data.portfolio_id
+    else:
+        portfolio_id = await _get_user_default_portfolio(user_id, db)
+
     # Check total allocation won't exceed 100%
-    current_total = await service.get_total_allocation(UUID(portfolio_id))
+    current_total = await service.get_total_allocation(portfolio_id)
     if current_total + data.target_allocation > Decimal("100"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -137,7 +165,7 @@ async def create_pie(
         )
     
     pie = await service.create(
-        portfolio_id=UUID(portfolio_id),
+        portfolio_id=portfolio_id,
         name=data.name,
         description=data.description,
         color=data.color,
@@ -145,30 +173,41 @@ async def create_pie(
         target_allocation=data.target_allocation,
     )
     
-    return _pie_to_response(pie)
+    return _pie_to_response(pie, user_id=user_id)
 
 
 @router.patch("/{pie_id}", response_model=PieWithSlicesResponse)
 async def update_pie(
-    pie_id: UUID,
+    pie_id: str,
     data: PieUpdate,
     user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
 ):
     """Update a pie."""
     service = PieService(db)
-    portfolio_id = await _get_user_default_portfolio(user_id, db)
-    
+    # Determine portfolio: allow overriding via payload
+    if getattr(data, "portfolio_id", None):
+        portfolio_service = PortfolioService(db)
+        user_portfolios = await portfolio_service.get_user_portfolios(str(user_id))
+        if not any(p.id == data.portfolio_id for p in user_portfolios):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Portfolio does not belong to the user",
+            )
+        portfolio_id = data.portfolio_id
+    else:
+        portfolio_id = await _get_user_default_portfolio(user_id, db)
+
     # If updating allocation, check it won't exceed 100%
     if data.target_allocation is not None:
-        existing_pie = await service.get_by_id(pie_id, UUID(portfolio_id))
+        existing_pie = await service.get_by_id(pie_id, portfolio_id)
         if not existing_pie:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Pie not found",
             )
         
-        current_total = await service.get_total_allocation(UUID(portfolio_id))
+        current_total = await service.get_total_allocation(portfolio_id)
         new_total = current_total - existing_pie.target_allocation + data.target_allocation
         if new_total > Decimal("100"):
             raise HTTPException(
@@ -178,7 +217,7 @@ async def update_pie(
     
     pie = await service.update(
         pie_id=pie_id,
-        portfolio_id=UUID(portfolio_id),
+        portfolio_id=portfolio_id,
         name=data.name,
         description=data.description,
         color=data.color,
@@ -198,14 +237,14 @@ async def update_pie(
 
 @router.delete("/{pie_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_pie(
-    pie_id: UUID,
+    pie_id: str,
     user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a pie and all its slices."""
     service = PieService(db)
     portfolio_id = await _get_user_default_portfolio(user_id, db)
-    deleted = await service.delete(pie_id, UUID(portfolio_id))
+    deleted = await service.delete(pie_id, portfolio_id)
     
     if not deleted:
         raise HTTPException(
@@ -223,4 +262,4 @@ async def reorder_pies(
     """Reorder pies by providing a list of pie IDs in the desired order."""
     service = PieService(db)
     portfolio_id = await _get_user_default_portfolio(user_id, db)
-    await service.reorder(UUID(portfolio_id), data.ids)
+    await service.reorder(portfolio_id, data.ids)

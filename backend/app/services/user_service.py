@@ -5,7 +5,6 @@ Business logic for user operations.
 """
 
 from typing import Optional
-from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +19,7 @@ class UserService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, user_id: UUID) -> Optional[User]:
+    async def get_by_id(self, user_id: str) -> Optional[User]:
         """
         Get a user by their ID.
 
@@ -46,7 +45,7 @@ class UserService:
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
-    async def update(self, user_id: UUID, data: UserUpdate) -> Optional[User]:
+    async def update(self, user_id: str, data: UserUpdate) -> Optional[User]:
         """
         Update a user's profile.
 
@@ -70,7 +69,7 @@ class UserService:
 
         return await self.get_by_id(user_id)
 
-    async def set_ibkr_connected(self, user_id: UUID, connected: bool) -> Optional[User]:
+    async def set_ibkr_connected(self, user_id: str, connected: bool) -> Optional[User]:
         """
         Update a user's IBKR connection status.
 

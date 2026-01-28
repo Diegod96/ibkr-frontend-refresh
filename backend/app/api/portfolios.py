@@ -5,7 +5,6 @@ CRUD operations for portfolios.
 """
 
 from typing import List
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +25,7 @@ router = APIRouter()
 async def get_portfolios(
     user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-) -> PortfolioListResponse:
+ ) -> PortfolioListResponse:
     """Get all portfolios for the current user."""
     service = PortfolioService(db)
     portfolios = await service.get_user_portfolios(user_id)
@@ -79,10 +78,10 @@ async def create_portfolio(
 
 @router.get("/{portfolio_id}", response_model=PortfolioResponse)
 async def get_portfolio(
-    portfolio_id: UUID,
+    portfolio_id: str,
     user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-) -> PortfolioResponse:
+ ) -> PortfolioResponse:
     """Get a specific portfolio by ID."""
     service = PortfolioService(db)
     portfolio = await service.get_portfolio_with_details(portfolio_id)
@@ -107,11 +106,11 @@ async def get_portfolio(
 
 @router.put("/{portfolio_id}", response_model=PortfolioResponse)
 async def update_portfolio(
-    portfolio_id: UUID,
+    portfolio_id: str,
     portfolio_data: PortfolioUpdate,
     user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-) -> PortfolioResponse:
+ ) -> PortfolioResponse:
     """Update a portfolio."""
     service = PortfolioService(db)
 
@@ -153,10 +152,10 @@ async def update_portfolio(
 
 @router.delete("/{portfolio_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_portfolio(
-    portfolio_id: UUID,
+    portfolio_id: str,
     user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-) -> None:
+ ) -> None:
     """Delete a portfolio."""
     service = PortfolioService(db)
 

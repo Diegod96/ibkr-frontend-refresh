@@ -6,7 +6,6 @@ Common schema patterns and base classes.
 
 from datetime import datetime
 from typing import Optional
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -28,9 +27,9 @@ class TimestampMixin(BaseModel):
 
 
 class UUIDMixin(BaseModel):
-    """Mixin for UUID primary key."""
+    """Mixin for ID primary key stored as string."""
 
-    id: UUID
+    id: str
 
 
 # ============================================================================
@@ -98,7 +97,7 @@ class PortfolioUpdate(BaseSchema):
 class PortfolioResponse(PortfolioBase, UUIDMixin, TimestampMixin):
     """Schema for portfolio response."""
 
-    user_id: UUID
+    user_id: str
 
 
 # ============================================================================
@@ -118,7 +117,7 @@ class PieBase(BaseSchema):
 class PieCreate(PieBase):
     """Schema for creating a pie."""
 
-    portfolio_id: UUID
+    portfolio_id: str
 
 
 class PieUpdate(BaseSchema):
@@ -133,7 +132,7 @@ class PieUpdate(BaseSchema):
 class PieResponse(PieBase, UUIDMixin, TimestampMixin):
     """Schema for pie response."""
 
-    portfolio_id: UUID
+    portfolio_id: str
 
 
 # ============================================================================
@@ -153,7 +152,7 @@ class SliceBase(BaseSchema):
 class SliceCreate(SliceBase):
     """Schema for creating a slice."""
 
-    pie_id: UUID
+    pie_id: str
 
 
 class SliceUpdate(BaseSchema):
@@ -167,7 +166,7 @@ class SliceUpdate(BaseSchema):
 class SliceResponse(SliceBase, UUIDMixin, TimestampMixin):
     """Schema for slice response."""
 
-    pie_id: UUID
+    pie_id: str
     current_shares: float
     average_cost: Optional[float] = None
 
@@ -188,7 +187,7 @@ class BuildRuleBase(BaseSchema):
 class BuildRuleCreate(BuildRuleBase):
     """Schema for creating a build rule."""
 
-    slice_id: UUID
+    slice_id: str
 
 
 class BuildRuleUpdate(BaseSchema):
@@ -201,7 +200,7 @@ class BuildRuleUpdate(BaseSchema):
 class BuildRuleResponse(BuildRuleBase, UUIDMixin, TimestampMixin):
     """Schema for build rule response."""
 
-    slice_id: UUID
+    slice_id: str
     last_triggered_at: Optional[datetime] = None
 
 
@@ -220,13 +219,13 @@ class DepositBase(BaseSchema):
 class DepositCreate(DepositBase):
     """Schema for creating a deposit."""
 
-    portfolio_id: UUID
+    portfolio_id: str
 
 
 class DepositResponse(DepositBase, UUIDMixin, TimestampMixin):
     """Schema for deposit response."""
 
-    portfolio_id: UUID
+    portfolio_id: str
     status: str
     allocated_amount: float
     deposited_at: datetime
@@ -252,17 +251,17 @@ class TransactionBase(BaseSchema):
 class TransactionCreate(TransactionBase):
     """Schema for creating a transaction."""
 
-    slice_id: UUID
-    deposit_id: Optional[UUID] = None
-    build_rule_id: Optional[UUID] = None
+    slice_id: str
+    deposit_id: Optional[str] = None
+    build_rule_id: Optional[str] = None
 
 
 class TransactionResponse(TransactionBase, UUIDMixin, TimestampMixin):
     """Schema for transaction response."""
 
-    slice_id: UUID
-    deposit_id: Optional[UUID] = None
-    build_rule_id: Optional[UUID] = None
+    slice_id: str
+    deposit_id: Optional[str] = None
+    build_rule_id: Optional[str] = None
     ibkr_order_id: Optional[str] = None
     status: str
     executed_at: Optional[datetime] = None

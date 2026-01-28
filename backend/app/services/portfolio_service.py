@@ -5,7 +5,6 @@ Business logic for portfolio operations.
 """
 
 from typing import List, Optional
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,7 +38,7 @@ class PortfolioService(BaseService[Portfolio]):
         await self.session.refresh(portfolio)
         return portfolio
 
-    async def update_portfolio(self, portfolio_id: UUID, updates: PortfolioUpdate) -> Optional[Portfolio]:
+    async def update_portfolio(self, portfolio_id: str, updates: PortfolioUpdate) -> Optional[Portfolio]:
         """Update a portfolio."""
         portfolio = await self.get_by_id(portfolio_id)
         if not portfolio:
@@ -53,7 +52,7 @@ class PortfolioService(BaseService[Portfolio]):
         await self.session.refresh(portfolio)
         return portfolio
 
-    async def delete_portfolio(self, portfolio_id: UUID) -> bool:
+    async def delete_portfolio(self, portfolio_id: str) -> bool:
         """Delete a portfolio."""
         portfolio = await self.get_by_id(portfolio_id)
         if not portfolio:
@@ -63,7 +62,7 @@ class PortfolioService(BaseService[Portfolio]):
         await self.session.commit()
         return True
 
-    async def get_portfolio_with_details(self, portfolio_id: UUID) -> Optional[Portfolio]:
+    async def get_portfolio_with_details(self, portfolio_id: str) -> Optional[Portfolio]:
         """Get a portfolio with its pies and slices loaded."""
         query = select(Portfolio).where(Portfolio.id == portfolio_id)
         result = await self.session.execute(query)

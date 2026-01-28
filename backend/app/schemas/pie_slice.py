@@ -7,7 +7,6 @@ Pydantic schemas for Pie and Slice API endpoints.
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -59,8 +58,8 @@ class SliceUpdate(BaseSchema):
 
 class SliceResponse(SliceBase):
     """Schema for slice response."""
-    id: UUID
-    pie_id: UUID
+    id: str
+    pie_id: str
     display_order: int
     is_active: bool
     created_at: datetime
@@ -82,7 +81,8 @@ class PieBase(BaseSchema):
 
 class PieCreate(PieBase):
     """Schema for creating a pie."""
-    pass
+    # Optional portfolio_id: if provided, pie will be created in that portfolio
+    portfolio_id: Optional[str] = None
 
 
 class PieUpdate(BaseSchema):
@@ -93,12 +93,14 @@ class PieUpdate(BaseSchema):
     icon: Optional[str] = Field(None, max_length=50)
     target_allocation: Optional[Decimal] = Field(None, ge=0, le=100)
     is_active: Optional[bool] = None
+    portfolio_id: Optional[str] = None
 
 
 class PieResponse(PieBase):
     """Schema for pie response (without slices)."""
-    id: UUID
-    user_id: UUID
+    id: str
+    portfolio_id: str
+    user_id: str
     display_order: int
     is_active: bool
     created_at: datetime
@@ -128,4 +130,4 @@ class PieListResponse(BaseSchema):
 
 class ReorderRequest(BaseSchema):
     """Schema for reordering items."""
-    ids: List[UUID] = Field(..., min_length=1, description="Ordered list of IDs")
+    ids: List[str] = Field(..., min_length=1, description="Ordered list of IDs")

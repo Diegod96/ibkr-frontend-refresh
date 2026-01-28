@@ -61,7 +61,9 @@ export function PortfoliosClient() {
     if (editingPie) {
       await pieApi.updatePie(editingPie.id, data as UpdatePieData);
     } else {
-      await pieApi.createPie(data as CreatePieData);
+      // include selected portfolio id when creating
+      const payload = { ...(data as CreatePieData), portfolio_id: selectedPortfolioId ?? undefined };
+      await pieApi.createPie(payload);
     }
     await loadPies();
   };

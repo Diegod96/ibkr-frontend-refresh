@@ -47,6 +47,7 @@ export interface CreatePieData {
   color?: string;
   icon?: string;
   target_allocation?: number;
+  portfolio_id?: string | null;
 }
 
 export interface UpdatePieData {
@@ -56,6 +57,7 @@ export interface UpdatePieData {
   icon?: string;
   target_allocation?: number;
   is_active?: boolean;
+  portfolio_id?: string | null;
 }
 
 export interface CreateSliceData {

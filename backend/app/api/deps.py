@@ -18,7 +18,7 @@ from app.schemas.base import UserResponse
 
 async def get_current_user_id(
     authorization: Annotated[Optional[str], Header()] = None,
-) -> UUID:
+) -> str:
     """
     Dependency to extract and validate the current user's ID from the JWT token.
 
@@ -34,13 +34,15 @@ async def get_current_user_id(
     token = get_token_from_header(authorization)
     user_id_str = extract_user_id_from_token(token)
     try:
-        return UUID(user_id_str)
+        # validate UUID format but return string so services and DB use string IDs consistently
+        _ = UUID(user_id_str)
+        return user_id_str
     except ValueError:
         raise AuthError("Invalid user ID in token")
 
 
 async def get_current_user(
-    user_id: Annotated[UUID, Depends(get_current_user_id)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> UserResponse:
     """
@@ -90,7 +92,7 @@ async def get_optional_user(
     try:
         token = get_token_from_header(authorization)
         user_id_str = extract_user_id_from_token(token)
-        user_id = UUID(user_id_str)
+        user_id = user_id_str
 
         from app.models.user import User
 
@@ -106,6 +108,6 @@ async def get_optional_user(
 
 
 # Type aliases for cleaner dependency injection
-CurrentUserId = Annotated[UUID, Depends(get_current_user_id)]
+CurrentUserId = Annotated[str, Depends(get_current_user_id)]
 CurrentUser = Annotated[UserResponse, Depends(get_current_user)]
 OptionalUser = Annotated[Optional[UserResponse], Depends(get_optional_user)]
