@@ -4,13 +4,11 @@ API Dependencies
 FastAPI dependencies for authentication and authorization.
 """
 
-from typing import Annotated, Optional
-"""
-Note: We validate incoming token user IDs by attempting to parse them as UUIDs,
-but the application stores and passes IDs around as plain 36-char strings.
-The runtime UUID import is only used for that local validation.
-"""
+from typing import Annotated, cast
 
+# Note: We validate incoming token user IDs by attempting to parse them as UUIDs,
+# but the application stores and passes IDs around as plain 36-char strings.
+# The runtime UUID import is only used for that local validation.
 from fastapi import Depends, Header
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +19,7 @@ from app.schemas.base import UserResponse
 
 
 async def get_current_user_id(
-    authorization: Annotated[Optional[str], Header()] = None,
+    authorization: Annotated[str | None, Header()] = None,
 ) -> str:
     """
     Dependency to extract and validate the current user's ID from the JWT token.
@@ -43,8 +41,8 @@ async def get_current_user_id(
 
         _ = _UUID(user_id_str)
         return user_id_str
-    except ValueError:
-        raise AuthError("Invalid user ID in token")
+    except ValueError as e:
+        raise AuthError("Invalid user ID in token") from e
 
 
 async def get_current_user(
@@ -76,9 +74,9 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    authorization: Annotated[Optional[str], Header()] = None,
-    db: Annotated[AsyncSession, Depends(get_db)] = None,
-) -> Optional[UserResponse]:
+    authorization: Annotated[str | None, Header()] = None,
+    db: Annotated[AsyncSession | None, Depends(get_db)] = None,
+) -> UserResponse | None:
     """
     Dependency to optionally get the current user if authenticated.
 
@@ -102,7 +100,7 @@ async def get_optional_user(
 
         from app.models.user import User
 
-        result = await db.execute(select(User).where(User.id == user_id))
+        result = await cast(AsyncSession, db).execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
 
         if user:
@@ -116,4 +114,4 @@ async def get_optional_user(
 # Type aliases for cleaner dependency injection
 CurrentUserId = Annotated[str, Depends(get_current_user_id)]
 CurrentUser = Annotated[UserResponse, Depends(get_current_user)]
-OptionalUser = Annotated[Optional[UserResponse], Depends(get_optional_user)]
+OptionalUser = Annotated[UserResponse | None, Depends(get_optional_user)]

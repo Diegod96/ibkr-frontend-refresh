@@ -4,13 +4,10 @@ Portfolio Service
 Business logic for portfolio operations.
 """
 
-from typing import List, Optional
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.portfolio import Portfolio
-from app.models.user import User
 from app.schemas.portfolio import PortfolioCreate, PortfolioUpdate
 from app.services.base import BaseService
 
@@ -21,7 +18,7 @@ class PortfolioService(BaseService[Portfolio]):
     def __init__(self, session: AsyncSession):
         super().__init__(session, Portfolio)
 
-    async def get_user_portfolios(self, user_id: str) -> List[Portfolio]:
+    async def get_user_portfolios(self, user_id: str) -> list[Portfolio]:
         """Get all portfolios for a user."""
         query = select(Portfolio).where(Portfolio.user_id == user_id).order_by(Portfolio.name)
         result = await self.session.execute(query)
@@ -38,7 +35,9 @@ class PortfolioService(BaseService[Portfolio]):
         await self.session.refresh(portfolio)
         return portfolio
 
-    async def update_portfolio(self, portfolio_id: str, updates: PortfolioUpdate) -> Optional[Portfolio]:
+    async def update_portfolio(
+        self, portfolio_id: str, updates: PortfolioUpdate
+    ) -> Portfolio | None:
         """Update a portfolio."""
         portfolio = await self.get_by_id(portfolio_id)
         if not portfolio:
@@ -62,7 +61,7 @@ class PortfolioService(BaseService[Portfolio]):
         await self.session.commit()
         return True
 
-    async def get_portfolio_with_details(self, portfolio_id: str) -> Optional[Portfolio]:
+    async def get_portfolio_with_details(self, portfolio_id: str) -> Portfolio | None:
         """Get a portfolio with its pies and slices loaded."""
         query = select(Portfolio).where(Portfolio.id == portfolio_id)
         result = await self.session.execute(query)

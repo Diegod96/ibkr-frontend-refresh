@@ -3,18 +3,15 @@ Portfolio Model
 """
 
 import uuid
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-import uuid
-from sqlalchemy import Column, String, Boolean, Text, ForeignKey, DateTime, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text, text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
-
 if TYPE_CHECKING:
-    from .user import User
-    from .pie import Pie
+    pass
 
 
 class Portfolio(Base):

@@ -5,7 +5,7 @@ JWT verification and authentication utilities for Supabase Auth integration.
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
@@ -24,7 +24,7 @@ class AuthError(HTTPException):
         )
 
 
-def verify_supabase_token(token: str) -> Dict[str, Any]:
+def verify_supabase_token(token: str) -> dict[str, Any]:
     """
     Verify a Supabase JWT token.
 
@@ -62,7 +62,7 @@ def verify_supabase_token(token: str) -> Dict[str, Any]:
         return payload
 
     except JWTError as e:
-        raise AuthError(f"Invalid token: {str(e)}")
+        raise AuthError(f"Invalid token: {str(e)}") from e
 
 
 def extract_user_id_from_token(token: str) -> str:
@@ -85,7 +85,7 @@ def extract_user_id_from_token(token: str) -> str:
     return user_id
 
 
-def get_token_from_header(authorization: Optional[str]) -> str:
+def get_token_from_header(authorization: str | None) -> str:
     """
     Extract the token from an Authorization header.
 

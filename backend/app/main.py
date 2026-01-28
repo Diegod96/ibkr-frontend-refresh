@@ -2,8 +2,8 @@
 FastAPI Application Entry Point
 """
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup - try to connect to database but don't block if it fails
     try:
         import asyncio
+
         await asyncio.wait_for(database.connect(), timeout=10.0)
         print("Database connected successfully")
     except Exception as e:

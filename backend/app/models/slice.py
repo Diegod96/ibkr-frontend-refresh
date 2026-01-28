@@ -4,28 +4,34 @@ Slice Model
 Represents an individual holding within a pie.
 """
 
-from datetime import datetime
-from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
 import uuid
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
-
 if TYPE_CHECKING:
-    from app.models.pie import Pie
+    pass
 
 
 class Slice(Base):
     """Slice model - represents an individual holding within a pie."""
 
     __tablename__ = "slices"
-    __table_args__ = (
-        UniqueConstraint("pie_id", "symbol", name="uq_slice_pie_symbol"),
-    )
+    __table_args__ = (UniqueConstraint("pie_id", "symbol", name="uq_slice_pie_symbol"),)
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     pie_id = Column(String(36), ForeignKey("pies.id", ondelete="CASCADE"), nullable=False)

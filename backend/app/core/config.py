@@ -5,7 +5,6 @@ Loads settings from environment variables with defaults.
 """
 
 from functools import lru_cache
-from typing import List
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -48,7 +47,7 @@ class Settings(BaseSettings):
     ibkr_client_secret: str = ""
 
     @property
-    def cors_origins_list(self) -> List[str]:
+    def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""
         return [origin.strip() for origin in self.cors_origins.split(",")]
 

@@ -4,7 +4,7 @@ Base Service
 Generic base service providing common CRUD operations.
 """
 
-from typing import Generic, List, Optional, Type, TypeVar
+from typing import Any, Generic, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,17 +15,18 @@ ModelType = TypeVar("ModelType")
 class BaseService(Generic[ModelType]):
     """Generic base service for CRUD operations."""
 
-    def __init__(self, session: AsyncSession, model: Type[ModelType]):
+    def __init__(self, session: AsyncSession, model: Any):
         self.session = session
+        # model is an ORM model type (SQLAlchemy); typing as Any to satisfy type checker
         self.model = model
 
-    async def get_by_id(self, id: str) -> Optional[ModelType]:
+    async def get_by_id(self, id: str) -> ModelType | None:
         """Get a record by ID."""
         query = select(self.model).where(self.model.id == id)
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_all(self) -> List[ModelType]:
+    async def get_all(self) -> list[ModelType]:
         """Get all records."""
         query = select(self.model)
         result = await self.session.execute(query)
@@ -39,7 +40,7 @@ class BaseService(Generic[ModelType]):
         await self.session.refresh(instance)
         return instance
 
-    async def update(self, id: str, **kwargs) -> Optional[ModelType]:
+    async def update(self, id: str, **kwargs) -> ModelType | None:
         """Update a record."""
         instance = await self.get_by_id(id)
         if not instance:

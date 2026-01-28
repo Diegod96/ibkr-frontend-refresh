@@ -5,7 +5,6 @@ CRUD endpoints for managing pies.
 """
 
 from decimal import Decimal
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,9 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import CurrentUserId, get_db
 from app.schemas.pie_slice import (
     PieCreate,
+    PieListResponse,
     PieUpdate,
     PieWithSlicesResponse,
-    PieListResponse,
     ReorderRequest,
 )
 from app.schemas.portfolio import PortfolioCreate
@@ -29,21 +28,26 @@ async def _get_user_default_portfolio(user_id: str, db: AsyncSession) -> str:
     """Get or create a default portfolio for the user."""
     portfolio_service = PortfolioService(db)
     portfolios = await portfolio_service.get_user_portfolios(str(user_id))
-    
+
     # Return existing default portfolio if it exists
     for portfolio in portfolios:
         if portfolio.name == "Default Portfolio":
             return str(portfolio.id)
-    
+
     # Create default portfolio if none exists
     default_portfolio = await portfolio_service.create_portfolio(
         str(user_id),
-        PortfolioCreate(name="Default Portfolio", description="Default portfolio for pies")
+        PortfolioCreate(
+            name="Default Portfolio",
+            description="Default portfolio for pies",
+            account_type=None,
+            ibkr_account_id=None,
+        ),
     )
     return str(default_portfolio.id)
 
 
-def _pie_to_response(pie, user_id: Optional[str] = None) -> PieWithSlicesResponse:
+def _pie_to_response(pie, user_id: str | None = None) -> PieWithSlicesResponse:
     """Convert a Pie model to response schema."""
     # Ensure user_id is a string for the response schema
     # user_id is expected to already be a string
@@ -51,7 +55,7 @@ def _pie_to_response(pie, user_id: Optional[str] = None) -> PieWithSlicesRespons
     return PieWithSlicesResponse(
         id=pie.id,
         portfolio_id=pie.portfolio_id,
-        user_id=user_id or None,
+        user_id=str(user_id) if user_id is not None else "",
         name=pie.name,
         description=pie.description,
         color=pie.color,
@@ -62,18 +66,19 @@ def _pie_to_response(pie, user_id: Optional[str] = None) -> PieWithSlicesRespons
         created_at=pie.created_at,
         updated_at=pie.updated_at,
         slices=[
-            {
-                "id": s.id,
-                "pie_id": s.pie_id,
-                "symbol": s.symbol,
-                "name": s.name,
-                "target_weight": s.target_weight,
-                "display_order": s.display_order,
-                "notes": s.notes,
-                "is_active": s.is_active,
-                "created_at": s.created_at,
-                "updated_at": s.updated_at,
-            }
+            # Build SliceResponse instances directly to satisfy static typing
+            PieWithSlicesResponse.__fields__["slices"].outer_type_.__args__[0](  # type: ignore[index]
+                id=s.id,
+                pie_id=s.pie_id,
+                symbol=s.symbol,
+                name=s.name,
+                target_weight=s.target_weight,
+                display_order=s.display_order,
+                notes=s.notes,
+                is_active=s.is_active,
+                created_at=s.created_at,
+                updated_at=s.updated_at,
+            )
             for s in (pie.slices or [])
             if s.is_active
         ],
@@ -86,7 +91,7 @@ def _pie_to_response(pie, user_id: Optional[str] = None) -> PieWithSlicesRespons
 async def get_pies(
     user_id: CurrentUserId,
     include_inactive: bool = False,
-    portfolio_id: Optional[str] = None,
+    portfolio_id: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Get all pies for the current user."""
@@ -106,7 +111,7 @@ async def get_pies(
 
     pies = await service.get_all_by_portfolio(selected_portfolio, include_inactive=include_inactive)
     total_allocation = await service.get_total_allocation(selected_portfolio)
-    
+
     return PieListResponse(
         pies=[_pie_to_response(p, user_id=user_id) for p in pies],
         total_allocation=total_allocation,
@@ -123,13 +128,13 @@ async def get_pie(
     service = PieService(db)
     portfolio_id = await _get_user_default_portfolio(user_id, db)
     pie = await service.get_by_id(pie_id, portfolio_id)
-    
+
     if not pie:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pie not found",
         )
-    
+
     return _pie_to_response(pie, user_id=user_id)
 
 
@@ -156,14 +161,16 @@ async def create_pie(
         portfolio_id = await _get_user_default_portfolio(user_id, db)
 
     # Check total allocation won't exceed 100%
+    # mypy: portfolio_id may be Optional in the schema, ensure it's a str here
+    portfolio_id = str(portfolio_id)
     current_total = await service.get_total_allocation(portfolio_id)
     if current_total + data.target_allocation > Decimal("100"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Total allocation would exceed 100%. Current: {current_total}%, "
-                    f"Requested: {data.target_allocation}%",
+            f"Requested: {data.target_allocation}%",
         )
-    
+
     pie = await service.create(
         portfolio_id=portfolio_id,
         name=data.name,
@@ -172,7 +179,7 @@ async def create_pie(
         icon=data.icon,
         target_allocation=data.target_allocation,
     )
-    
+
     return _pie_to_response(pie, user_id=user_id)
 
 
@@ -194,7 +201,8 @@ async def update_pie(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Portfolio does not belong to the user",
             )
-        portfolio_id = data.portfolio_id
+        # data.portfolio_id is Optional[str]; we know it's present because of the check
+        portfolio_id = str(data.portfolio_id)
     else:
         portfolio_id = await _get_user_default_portfolio(user_id, db)
 
@@ -206,7 +214,7 @@ async def update_pie(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Pie not found",
             )
-        
+
         current_total = await service.get_total_allocation(portfolio_id)
         new_total = current_total - existing_pie.target_allocation + data.target_allocation
         if new_total > Decimal("100"):
@@ -214,7 +222,7 @@ async def update_pie(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Total allocation would exceed 100%. New total would be: {new_total}%",
             )
-    
+
     pie = await service.update(
         pie_id=pie_id,
         portfolio_id=portfolio_id,
@@ -225,13 +233,13 @@ async def update_pie(
         target_allocation=data.target_allocation,
         is_active=data.is_active,
     )
-    
+
     if not pie:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pie not found",
         )
-    
+
     return _pie_to_response(pie)
 
 
@@ -245,7 +253,7 @@ async def delete_pie(
     service = PieService(db)
     portfolio_id = await _get_user_default_portfolio(user_id, db)
     deleted = await service.delete(pie_id, portfolio_id)
-    
+
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

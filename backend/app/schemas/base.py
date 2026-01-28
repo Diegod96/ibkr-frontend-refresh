@@ -5,7 +5,6 @@ Common schema patterns and base classes.
 """
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -41,7 +40,7 @@ class UserBase(BaseSchema):
     """Base user schema."""
 
     email: str
-    display_name: Optional[str] = None
+    display_name: str | None = None
 
 
 class UserCreate(UserBase):
@@ -53,8 +52,8 @@ class UserCreate(UserBase):
 class UserUpdate(BaseSchema):
     """Schema for updating a user."""
 
-    display_name: Optional[str] = None
-    ibkr_connected: Optional[bool] = None
+    display_name: str | None = None
+    ibkr_connected: bool | None = None
 
 
 class UserResponse(UserBase, UUIDMixin, TimestampMixin):
@@ -72,9 +71,9 @@ class PortfolioBase(BaseSchema):
     """Base portfolio schema."""
 
     name: str
-    description: Optional[str] = None
-    account_type: Optional[str] = None
-    ibkr_account_id: Optional[str] = None
+    description: str | None = None
+    account_type: str | None = None
+    ibkr_account_id: str | None = None
     auto_invest_enabled: bool = False
 
 
@@ -87,11 +86,11 @@ class PortfolioCreate(PortfolioBase):
 class PortfolioUpdate(BaseSchema):
     """Schema for updating a portfolio."""
 
-    name: Optional[str] = None
-    description: Optional[str] = None
-    account_type: Optional[str] = None
-    ibkr_account_id: Optional[str] = None
-    auto_invest_enabled: Optional[bool] = None
+    name: str | None = None
+    description: str | None = None
+    account_type: str | None = None
+    ibkr_account_id: str | None = None
+    auto_invest_enabled: bool | None = None
 
 
 class PortfolioResponse(PortfolioBase, UUIDMixin, TimestampMixin):
@@ -109,9 +108,9 @@ class PieBase(BaseSchema):
     """Base pie schema."""
 
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     target_weight: float
-    color: Optional[str] = None
+    color: str | None = None
 
 
 class PieCreate(PieBase):
@@ -123,10 +122,10 @@ class PieCreate(PieBase):
 class PieUpdate(BaseSchema):
     """Schema for updating a pie."""
 
-    name: Optional[str] = None
-    description: Optional[str] = None
-    target_weight: Optional[float] = None
-    color: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
+    target_weight: float | None = None
+    color: str | None = None
 
 
 class PieResponse(PieBase, UUIDMixin, TimestampMixin):
@@ -144,7 +143,7 @@ class SliceBase(BaseSchema):
     """Base slice schema."""
 
     ticker: str
-    name: Optional[str] = None
+    name: str | None = None
     target_weight: float
     position_type: str = "full"
 
@@ -158,9 +157,9 @@ class SliceCreate(SliceBase):
 class SliceUpdate(BaseSchema):
     """Schema for updating a slice."""
 
-    name: Optional[str] = None
-    target_weight: Optional[float] = None
-    position_type: Optional[str] = None
+    name: str | None = None
+    target_weight: float | None = None
+    position_type: str | None = None
 
 
 class SliceResponse(SliceBase, UUIDMixin, TimestampMixin):
@@ -168,7 +167,7 @@ class SliceResponse(SliceBase, UUIDMixin, TimestampMixin):
 
     pie_id: str
     current_shares: float
-    average_cost: Optional[float] = None
+    average_cost: float | None = None
 
 
 # ============================================================================
@@ -193,15 +192,15 @@ class BuildRuleCreate(BuildRuleBase):
 class BuildRuleUpdate(BaseSchema):
     """Schema for updating a build rule."""
 
-    parameters: Optional[dict] = None
-    is_active: Optional[bool] = None
+    parameters: dict | None = None
+    is_active: bool | None = None
 
 
 class BuildRuleResponse(BuildRuleBase, UUIDMixin, TimestampMixin):
     """Schema for build rule response."""
 
     slice_id: str
-    last_triggered_at: Optional[datetime] = None
+    last_triggered_at: datetime | None = None
 
 
 # ============================================================================
@@ -213,7 +212,7 @@ class DepositBase(BaseSchema):
     """Base deposit schema."""
 
     amount: float
-    source: Optional[str] = None
+    source: str | None = None
 
 
 class DepositCreate(DepositBase):
@@ -229,7 +228,7 @@ class DepositResponse(DepositBase, UUIDMixin, TimestampMixin):
     status: str
     allocated_amount: float
     deposited_at: datetime
-    allocated_at: Optional[datetime] = None
+    allocated_at: datetime | None = None
 
 
 # ============================================================================
@@ -252,16 +251,16 @@ class TransactionCreate(TransactionBase):
     """Schema for creating a transaction."""
 
     slice_id: str
-    deposit_id: Optional[str] = None
-    build_rule_id: Optional[str] = None
+    deposit_id: str | None = None
+    build_rule_id: str | None = None
 
 
 class TransactionResponse(TransactionBase, UUIDMixin, TimestampMixin):
     """Schema for transaction response."""
 
     slice_id: str
-    deposit_id: Optional[str] = None
-    build_rule_id: Optional[str] = None
-    ibkr_order_id: Optional[str] = None
+    deposit_id: str | None = None
+    build_rule_id: str | None = None
+    ibkr_order_id: str | None = None
     status: str
-    executed_at: Optional[datetime] = None
+    executed_at: datetime | None = None

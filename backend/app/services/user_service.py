@@ -4,13 +4,11 @@ User Service
 Business logic for user operations.
 """
 
-from typing import Optional
-
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.schemas.base import UserResponse, UserUpdate
+from app.schemas.base import UserUpdate
 
 
 class UserService:
@@ -19,7 +17,7 @@ class UserService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, user_id: str) -> Optional[User]:
+    async def get_by_id(self, user_id: str) -> User | None:
         """
         Get a user by their ID.
 
@@ -32,7 +30,7 @@ class UserService:
         result = await self.db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> User | None:
         """
         Get a user by their email address.
 
@@ -45,7 +43,7 @@ class UserService:
         result = await self.db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
-    async def update(self, user_id: str, data: UserUpdate) -> Optional[User]:
+    async def update(self, user_id: str, data: UserUpdate) -> User | None:
         """
         Update a user's profile.
 
@@ -62,14 +60,12 @@ class UserService:
             # Nothing to update, just return the user
             return await self.get_by_id(user_id)
 
-        await self.db.execute(
-            update(User).where(User.id == user_id).values(**update_data)
-        )
+        await self.db.execute(update(User).where(User.id == user_id).values(**update_data))
         await self.db.commit()
 
         return await self.get_by_id(user_id)
 
-    async def set_ibkr_connected(self, user_id: str, connected: bool) -> Optional[User]:
+    async def set_ibkr_connected(self, user_id: str, connected: bool) -> User | None:
         """
         Update a user's IBKR connection status.
 

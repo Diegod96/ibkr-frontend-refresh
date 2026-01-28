@@ -5,14 +5,13 @@ CRUD operations for Pie management.
 """
 
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, cast
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.pie import Pie
-from app.models.slice import Slice
 
 
 class PieService:
@@ -21,7 +20,7 @@ class PieService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, pie_id: str, portfolio_id: str) -> Optional[Pie]:
+    async def get_by_id(self, pie_id: str, portfolio_id: str) -> Pie | None:
         """Get a pie by ID, ensuring it belongs to the portfolio."""
         # IDs are expected to be strings
 
@@ -34,10 +33,8 @@ class PieService:
         return result.scalar_one_or_none()
 
     async def get_all_by_portfolio(
-        self,
-        portfolio_id: str,
-        include_inactive: bool = False
-    ) -> List[Pie]:
+        self, portfolio_id: str, include_inactive: bool = False
+    ) -> list[Pie]:
         """Get all pies for a portfolio."""
         # portfolio_id should be a string
 
@@ -47,10 +44,10 @@ class PieService:
             .where(Pie.portfolio_id == portfolio_id)
             .order_by(Pie.display_order, Pie.created_at)
         )
-        
+
         if not include_inactive:
-            query = query.where(Pie.is_active == True)
-        
+            query = query.where(Pie.is_active)
+
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
@@ -58,15 +55,20 @@ class PieService:
         self,
         portfolio_id: str,
         name: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         color: str = "#3B82F6",
-        icon: Optional[str] = None,
+        icon: str | None = None,
         target_allocation: Decimal = Decimal("0"),
     ) -> Pie:
         """Create a new pie."""
         # Get the next display order (portfolio_id is expected to be a string)
 
-        max_order_query = select(Pie.display_order).where(Pie.portfolio_id == portfolio_id).order_by(Pie.display_order.desc()).limit(1)
+        max_order_query = (
+            select(Pie.display_order)
+            .where(Pie.portfolio_id == portfolio_id)
+            .order_by(Pie.display_order.desc())
+            .limit(1)
+        )
         result = await self.db.execute(max_order_query)
         max_order = result.scalar_one_or_none() or 0
 
@@ -89,30 +91,32 @@ class PieService:
         self,
         pie_id: str,
         portfolio_id: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        color: Optional[str] = None,
-        icon: Optional[str] = None,
-        target_allocation: Optional[Decimal] = None,
-        is_active: Optional[bool] = None,
-    ) -> Optional[Pie]:
+        name: str | None = None,
+        description: str | None = None,
+        color: str | None = None,
+        icon: str | None = None,
+        target_allocation: Decimal | None = None,
+        is_active: bool | None = None,
+    ) -> Pie | None:
         """Update a pie."""
         pie = await self.get_by_id(pie_id, portfolio_id)
         if not pie:
             return None
 
+        p = cast(Any, pie)
+
         if name is not None:
-            pie.name = name
+            p.name = name
         if description is not None:
-            pie.description = description
+            p.description = description
         if color is not None:
-            pie.color = color
+            p.color = color
         if icon is not None:
-            pie.icon = icon
+            p.icon = icon
         if target_allocation is not None:
-            pie.target_allocation = target_allocation
+            p.target_allocation = target_allocation
         if is_active is not None:
-            pie.is_active = is_active
+            p.is_active = is_active
 
         await self.db.flush()
         await self.db.refresh(pie)
@@ -123,14 +127,13 @@ class PieService:
         # IDs expected as strings
         query = delete(Pie).where(Pie.id == pie_id, Pie.portfolio_id == portfolio_id)
         result = await self.db.execute(query)
-        return result.rowcount > 0
+        return cast(Any, result).rowcount > 0
 
-    async def reorder(self, portfolio_id: str, pie_ids: List[str]) -> bool:
+    async def reorder(self, portfolio_id: str, pie_ids: list[str]) -> bool:
         """Reorder pies by updating their display_order."""
         # portfolio_id and pie_ids are expected to be strings
 
         for index, pie_id in enumerate(pie_ids):
-            
             query = (
                 update(Pie)
                 .where(Pie.id == pie_id, Pie.portfolio_id == portfolio_id)
@@ -143,4 +146,6 @@ class PieService:
         """Get total allocation percentage across all active pies."""
         pies = await self.get_all_by_portfolio(portfolio_id)
         from decimal import Decimal
-        return sum((pie.target_allocation for pie in pies), Decimal("0"))
+
+        # cast pie instances to Any to avoid mypy treating attributes as Column types
+        return sum((cast(Any, pie).target_allocation for pie in pies), Decimal("0"))
