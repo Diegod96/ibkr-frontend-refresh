@@ -5,7 +5,11 @@ FastAPI dependencies for authentication and authorization.
 """
 
 from typing import Annotated, Optional
-from uuid import UUID
+"""
+Note: We validate incoming token user IDs by attempting to parse them as UUIDs,
+but the application stores and passes IDs around as plain 36-char strings.
+The runtime UUID import is only used for that local validation.
+"""
 
 from fastapi import Depends, Header
 from sqlalchemy import select
@@ -35,7 +39,9 @@ async def get_current_user_id(
     user_id_str = extract_user_id_from_token(token)
     try:
         # validate UUID format but return string so services and DB use string IDs consistently
-        _ = UUID(user_id_str)
+        from uuid import UUID as _UUID
+
+        _ = _UUID(user_id_str)
         return user_id_str
     except ValueError:
         raise AuthError("Invalid user ID in token")
