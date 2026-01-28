@@ -9,17 +9,36 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user_id
-from app.core.database import get_db
+from app.api.deps import CurrentUserId, get_db
 from app.schemas.pie_slice import (
     SliceCreate,
     SliceUpdate,
     SliceResponse,
     ReorderRequest,
 )
+from app.schemas.portfolio import PortfolioCreate
 from app.services.slice_service import SliceService
+from app.services.portfolio_service import PortfolioService
 
 router = APIRouter(prefix="/pies/{pie_id}/slices", tags=["slices"])
+
+
+async def _get_user_default_portfolio(user_id: UUID, db: AsyncSession) -> str:
+    """Get or create a default portfolio for the user."""
+    portfolio_service = PortfolioService(db)
+    portfolios = await portfolio_service.get_user_portfolios(str(user_id))
+    
+    # Return existing default portfolio if it exists
+    for portfolio in portfolios:
+        if portfolio.name == "Default Portfolio":
+            return str(portfolio.id)
+    
+    # Create default portfolio if none exists
+    default_portfolio = await portfolio_service.create_portfolio(
+        str(user_id),
+        PortfolioCreate(name="Default Portfolio", description="Default portfolio for pies")
+    )
+    return str(default_portfolio.id)
 
 
 def _slice_to_response(slice_obj) -> SliceResponse:
@@ -41,13 +60,14 @@ def _slice_to_response(slice_obj) -> SliceResponse:
 @router.get("", response_model=list[SliceResponse])
 async def get_slices(
     pie_id: UUID,
+    user_id: CurrentUserId,
     include_inactive: bool = False,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Get all slices for a pie."""
     service = SliceService(db)
-    slices = await service.get_all_by_pie(pie_id, user_id, include_inactive=include_inactive)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
+    slices = await service.get_all_by_pie(pie_id, UUID(portfolio_id), include_inactive=include_inactive)
     return [_slice_to_response(s) for s in slices]
 
 
@@ -55,12 +75,13 @@ async def get_slices(
 async def get_slice(
     pie_id: UUID,
     slice_id: UUID,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Get a specific slice by ID."""
     service = SliceService(db)
-    slice_obj = await service.get_by_id(slice_id, user_id)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
+    slice_obj = await service.get_by_id(slice_id, UUID(portfolio_id))
     
     if not slice_obj or slice_obj.pie_id != pie_id:
         raise HTTPException(
@@ -75,16 +96,17 @@ async def get_slice(
 async def create_slice(
     pie_id: UUID,
     data: SliceCreate,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Create a new slice in a pie."""
     service = SliceService(db)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
     
     try:
         slice_obj = await service.create(
             pie_id=pie_id,
-            user_id=user_id,
+            portfolio_id=UUID(portfolio_id),
             symbol=data.symbol,
             target_weight=data.target_weight,
             name=data.name,
@@ -110,14 +132,15 @@ async def update_slice(
     pie_id: UUID,
     slice_id: UUID,
     data: SliceUpdate,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Update a slice."""
     service = SliceService(db)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
     
     # Verify the slice belongs to this pie
-    existing = await service.get_by_id(slice_id, user_id)
+    existing = await service.get_by_id(slice_id, UUID(portfolio_id))
     if not existing or existing.pie_id != pie_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -127,7 +150,7 @@ async def update_slice(
     try:
         slice_obj = await service.update(
             slice_id=slice_id,
-            user_id=user_id,
+            portfolio_id=UUID(portfolio_id),
             symbol=data.symbol,
             name=data.name,
             target_weight=data.target_weight,
@@ -153,15 +176,24 @@ async def update_slice(
 async def delete_slice(
     pie_id: UUID,
     slice_id: UUID,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Delete a slice from a pie."""
     service = SliceService(db)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
     
     # Verify the slice belongs to this pie
-    existing = await service.get_by_id(slice_id, user_id)
+    existing = await service.get_by_id(slice_id, UUID(portfolio_id))
     if not existing or existing.pie_id != pie_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Slice not found",
+        )
+    
+    deleted = await service.delete(slice_id, UUID(portfolio_id))
+    
+    if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Slice not found",
@@ -180,12 +212,13 @@ async def delete_slice(
 async def reorder_slices(
     pie_id: UUID,
     data: ReorderRequest,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Reorder slices by providing a list of slice IDs in the desired order."""
     service = SliceService(db)
-    success = await service.reorder(pie_id, user_id, data.ids)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
+    success = await service.reorder(pie_id, UUID(portfolio_id), data.ids)
     
     if not success:
         raise HTTPException(

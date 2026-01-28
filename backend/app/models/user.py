@@ -15,7 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
-    from app.models.pie import Pie
+    from app.models.portfolio import Portfolio
 
 
 class User(Base):
@@ -35,11 +35,11 @@ class User(Base):
     )
 
     # Relationships
-    pies: Mapped[List["Pie"]] = relationship(
-        "Pie",
+    portfolios: Mapped[List["Portfolio"]] = relationship(
+        "Portfolio",
         back_populates="user",
         cascade="all, delete-orphan",
-        order_by="Pie.display_order"
+        order_by="Portfolio.name"
     )
 
     def __repr__(self) -> str:

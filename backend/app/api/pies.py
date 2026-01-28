@@ -11,8 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user_id
-from app.core.database import get_db
+from app.api.deps import CurrentUserId, get_db
 from app.schemas.pie_slice import (
     PieCreate,
     PieUpdate,
@@ -20,16 +19,36 @@ from app.schemas.pie_slice import (
     PieListResponse,
     ReorderRequest,
 )
+from app.schemas.portfolio import PortfolioCreate
 from app.services.pie_service import PieService
+from app.services.portfolio_service import PortfolioService
 
 router = APIRouter(prefix="/pies", tags=["pies"])
+
+
+async def _get_user_default_portfolio(user_id: UUID, db: AsyncSession) -> str:
+    """Get or create a default portfolio for the user."""
+    portfolio_service = PortfolioService(db)
+    portfolios = await portfolio_service.get_user_portfolios(str(user_id))
+    
+    # Return existing default portfolio if it exists
+    for portfolio in portfolios:
+        if portfolio.name == "Default Portfolio":
+            return str(portfolio.id)
+    
+    # Create default portfolio if none exists
+    default_portfolio = await portfolio_service.create_portfolio(
+        str(user_id),
+        PortfolioCreate(name="Default Portfolio", description="Default portfolio for pies")
+    )
+    return str(default_portfolio.id)
 
 
 def _pie_to_response(pie) -> PieWithSlicesResponse:
     """Convert a Pie model to response schema."""
     return PieWithSlicesResponse(
         id=pie.id,
-        user_id=pie.user_id,
+        portfolio_id=pie.portfolio_id,
         name=pie.name,
         description=pie.description,
         color=pie.color,
@@ -62,14 +81,15 @@ def _pie_to_response(pie) -> PieWithSlicesResponse:
 
 @router.get("", response_model=PieListResponse)
 async def get_pies(
+    user_id: CurrentUserId,
     include_inactive: bool = False,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Get all pies for the current user."""
     service = PieService(db)
-    pies = await service.get_all_by_user(user_id, include_inactive=include_inactive)
-    total_allocation = await service.get_total_allocation(user_id)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
+    pies = await service.get_all_by_portfolio(UUID(portfolio_id), include_inactive=include_inactive)
+    total_allocation = await service.get_total_allocation(UUID(portfolio_id))
     
     return PieListResponse(
         pies=[_pie_to_response(p) for p in pies],
@@ -80,12 +100,13 @@ async def get_pies(
 @router.get("/{pie_id}", response_model=PieWithSlicesResponse)
 async def get_pie(
     pie_id: UUID,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Get a specific pie by ID."""
     service = PieService(db)
-    pie = await service.get_by_id(pie_id, user_id)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
+    pie = await service.get_by_id(pie_id, UUID(portfolio_id))
     
     if not pie:
         raise HTTPException(
@@ -99,23 +120,24 @@ async def get_pie(
 @router.post("", response_model=PieWithSlicesResponse, status_code=status.HTTP_201_CREATED)
 async def create_pie(
     data: PieCreate,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Create a new pie."""
     service = PieService(db)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
     
     # Check total allocation won't exceed 100%
-    current_total = await service.get_total_allocation(user_id)
+    current_total = await service.get_total_allocation(UUID(portfolio_id))
     if current_total + data.target_allocation > Decimal("100"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Total allocation would exceed 100%. Current: {current_total}%, "
-                   f"Requested: {data.target_allocation}%",
+                    f"Requested: {data.target_allocation}%",
         )
     
     pie = await service.create(
-        user_id=user_id,
+        portfolio_id=UUID(portfolio_id),
         name=data.name,
         description=data.description,
         color=data.color,
@@ -130,22 +152,23 @@ async def create_pie(
 async def update_pie(
     pie_id: UUID,
     data: PieUpdate,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Update a pie."""
     service = PieService(db)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
     
     # If updating allocation, check it won't exceed 100%
     if data.target_allocation is not None:
-        existing_pie = await service.get_by_id(pie_id, user_id)
+        existing_pie = await service.get_by_id(pie_id, UUID(portfolio_id))
         if not existing_pie:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Pie not found",
             )
         
-        current_total = await service.get_total_allocation(user_id)
+        current_total = await service.get_total_allocation(UUID(portfolio_id))
         new_total = current_total - existing_pie.target_allocation + data.target_allocation
         if new_total > Decimal("100"):
             raise HTTPException(
@@ -155,7 +178,7 @@ async def update_pie(
     
     pie = await service.update(
         pie_id=pie_id,
-        user_id=user_id,
+        portfolio_id=UUID(portfolio_id),
         name=data.name,
         description=data.description,
         color=data.color,
@@ -176,12 +199,13 @@ async def update_pie(
 @router.delete("/{pie_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_pie(
     pie_id: UUID,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Delete a pie and all its slices."""
     service = PieService(db)
-    deleted = await service.delete(pie_id, user_id)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
+    deleted = await service.delete(pie_id, UUID(portfolio_id))
     
     if not deleted:
         raise HTTPException(
@@ -193,9 +217,10 @@ async def delete_pie(
 @router.post("/reorder", status_code=status.HTTP_204_NO_CONTENT)
 async def reorder_pies(
     data: ReorderRequest,
+    user_id: CurrentUserId,
     db: AsyncSession = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
 ):
     """Reorder pies by providing a list of pie IDs in the desired order."""
     service = PieService(db)
-    await service.reorder(user_id, data.ids)
+    portfolio_id = await _get_user_default_portfolio(user_id, db)
+    await service.reorder(UUID(portfolio_id), data.ids)

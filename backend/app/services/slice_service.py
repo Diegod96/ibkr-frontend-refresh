@@ -21,18 +21,18 @@ class SliceService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def _verify_pie_ownership(self, pie_id: UUID, user_id: UUID) -> bool:
-        """Verify that a pie belongs to the user."""
-        query = select(Pie.id).where(Pie.id == pie_id, Pie.user_id == user_id)
+    async def _verify_pie_ownership(self, pie_id: UUID, portfolio_id: UUID) -> bool:
+        """Verify that a pie belongs to the portfolio."""
+        query = select(Pie.id).where(Pie.id == pie_id, Pie.portfolio_id == portfolio_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none() is not None
 
-    async def get_by_id(self, slice_id: UUID, user_id: UUID) -> Optional[Slice]:
-        """Get a slice by ID, ensuring it belongs to a pie owned by the user."""
+    async def get_by_id(self, slice_id: UUID, portfolio_id: UUID) -> Optional[Slice]:
+        """Get a slice by ID, ensuring it belongs to a pie owned by the portfolio."""
         query = (
             select(Slice)
             .join(Pie)
-            .where(Slice.id == slice_id, Pie.user_id == user_id)
+            .where(Slice.id == slice_id, Pie.portfolio_id == portfolio_id)
         )
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
@@ -40,12 +40,12 @@ class SliceService:
     async def get_all_by_pie(
         self,
         pie_id: UUID,
-        user_id: UUID,
+        portfolio_id: UUID,
         include_inactive: bool = False
     ) -> List[Slice]:
         """Get all slices for a pie."""
         # First verify pie ownership
-        if not await self._verify_pie_ownership(pie_id, user_id):
+        if not await self._verify_pie_ownership(pie_id, portfolio_id):
             return []
 
         query = (
@@ -73,7 +73,7 @@ class SliceService:
     async def create(
         self,
         pie_id: UUID,
-        user_id: UUID,
+        portfolio_id: UUID,
         symbol: str,
         target_weight: Decimal,
         name: Optional[str] = None,
@@ -81,7 +81,7 @@ class SliceService:
     ) -> Optional[Slice]:
         """Create a new slice."""
         # Verify pie ownership
-        if not await self._verify_pie_ownership(pie_id, user_id):
+        if not await self._verify_pie_ownership(pie_id, portfolio_id):
             return None
 
         # Check if total weight would exceed 100%
@@ -118,7 +118,7 @@ class SliceService:
     async def update(
         self,
         slice_id: UUID,
-        user_id: UUID,
+        portfolio_id: UUID,
         symbol: Optional[str] = None,
         name: Optional[str] = None,
         target_weight: Optional[Decimal] = None,
@@ -126,7 +126,7 @@ class SliceService:
         is_active: Optional[bool] = None,
     ) -> Optional[Slice]:
         """Update a slice."""
-        slice_obj = await self.get_by_id(slice_id, user_id)
+        slice_obj = await self.get_by_id(slice_id, portfolio_id)
         if not slice_obj:
             return None
 
@@ -154,9 +154,9 @@ class SliceService:
         await self.db.refresh(slice_obj)
         return slice_obj
 
-    async def delete(self, slice_id: UUID, user_id: UUID) -> bool:
+    async def delete(self, slice_id: UUID, portfolio_id: UUID) -> bool:
         """Delete a slice."""
-        slice_obj = await self.get_by_id(slice_id, user_id)
+        slice_obj = await self.get_by_id(slice_id, portfolio_id)
         if not slice_obj:
             return False
 
@@ -164,10 +164,10 @@ class SliceService:
         result = await self.db.execute(query)
         return result.rowcount > 0
 
-    async def reorder(self, pie_id: UUID, user_id: UUID, slice_ids: List[UUID]) -> bool:
+    async def reorder(self, pie_id: UUID, portfolio_id: UUID, slice_ids: List[UUID]) -> bool:
         """Reorder slices by updating their display_order."""
         # Verify pie ownership
-        if not await self._verify_pie_ownership(pie_id, user_id):
+        if not await self._verify_pie_ownership(pie_id, portfolio_id):
             return False
 
         for index, slice_id in enumerate(slice_ids):

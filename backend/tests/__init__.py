@@ -1,4 +1,1 @@
-# Tests
-__pycache__/
-.pytest_cache/
-*.pyc
+# Tests package

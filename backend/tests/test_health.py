@@ -3,13 +3,11 @@ Health endpoint tests.
 """
 
 import pytest
-from httpx import AsyncClient
 
 
-@pytest.mark.asyncio
-async def test_health_check(client: AsyncClient):
+def test_health_check(client):
     """Test basic health check endpoint."""
-    response = await client.get("/api/health")
+    response = client.get("/api/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
@@ -17,10 +15,9 @@ async def test_health_check(client: AsyncClient):
     assert "timestamp" in data
 
 
-@pytest.mark.asyncio
-async def test_liveness_check(client: AsyncClient):
+def test_liveness_check(client):
     """Test liveness check endpoint."""
-    response = await client.get("/api/health/live")
+    response = client.get("/api/health/live")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "alive"

@@ -15,8 +15,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
+    from app.models.portfolio import Portfolio
     from app.models.slice import Slice
-    from app.models.user import User
 
 
 class Pie(Base):
@@ -25,7 +25,7 @@ class Pie(Base):
     __tablename__ = "pies"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, server_default="gen_random_uuid()")
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    portfolio_id: Mapped[UUID] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     color: Mapped[str] = mapped_column(String(7), default="#3B82F6")
@@ -37,7 +37,7 @@ class Pie(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="pies")
+    portfolio: Mapped["Portfolio"] = relationship("Portfolio", back_populates="pies")
     slices: Mapped[List["Slice"]] = relationship(
         "Slice",
         back_populates="pie",
