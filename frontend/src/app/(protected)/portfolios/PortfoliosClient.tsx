@@ -9,10 +9,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import { PieCard, PieFormModal, SliceFormModal } from '@/components/pies';
+import { PortfolioSelector } from '@/components/portfolios/PortfolioSelector';
 import type { Pie, Slice, CreatePieData, UpdatePieData, CreateSliceData, UpdateSliceData } from '@/types/pie';
 import * as pieApi from '@/services/pieApi';
 
 export function PortfoliosClient() {
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
   const [pies, setPies] = useState<Pie[]>([]);
   const [totalAllocation, setTotalAllocation] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,7 +32,7 @@ export function PortfoliosClient() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await pieApi.getPies();
+      const response = await pieApi.getPies(false, selectedPortfolioId ?? undefined);
       setPies(response.pies);
       setTotalAllocation(response.total_allocation);
     } catch (err) {
@@ -42,7 +44,7 @@ export function PortfoliosClient() {
 
   useEffect(() => {
     loadPies();
-  }, [loadPies]);
+  }, [loadPies, selectedPortfolioId]);
 
   // Pie handlers
   const handleCreatePie = () => {
@@ -133,22 +135,28 @@ export function PortfoliosClient() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Portfolios
-            </h1>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Manage your portfolio pies and slices
-            </p>
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                Portfolios
+              </h1>
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                Manage your portfolio pies and slices
+              </p>
+            </div>
+           <div className="flex items-center space-x-4">
+             <PortfolioSelector
+               value={selectedPortfolioId}
+               onChange={(id) => setSelectedPortfolioId(id)}
+             />
+             <Button onClick={handleCreatePie}>
+              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Pie
+            </Button>
           </div>
-          <Button onClick={handleCreatePie}>
-            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Pie
-          </Button>
-        </div>
+          </div>
 
         {/* Allocation summary */}
         <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">

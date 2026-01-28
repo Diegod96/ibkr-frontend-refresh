@@ -19,9 +19,12 @@ import type {
 // Pie API
 // ============================================================================
 
-export async function getPies(includeInactive = false): Promise<PieListResponse> {
-  const params = includeInactive ? '?include_inactive=true' : '';
-  return fetchAPI<PieListResponse>(`/pies${params}`);
+export async function getPies(includeInactive = false, portfolioId?: string): Promise<PieListResponse> {
+  const params = new URLSearchParams();
+  if (includeInactive) params.set('include_inactive', 'true');
+  if (portfolioId) params.set('portfolio_id', portfolioId);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return fetchAPI<PieListResponse>(`/pies${qs}`);
 }
 
 export async function getPie(pieId: string): Promise<Pie> {
