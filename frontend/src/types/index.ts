@@ -226,3 +226,20 @@ export interface HealthCheck {
   environment: string;
   timestamp: string;
 }
+
+// ============================================================================
+// IBKR Types
+// ============================================================================
+
+export interface IBKRStatus {
+  authenticated: boolean;
+  connected: boolean;
+  message: string;
+  details?: Record<string, unknown> | null;
+}
+
+export interface IBKRAccount {
+  account_id: string;
+  account_title: string | null;
+  account_type: string | null;
+}

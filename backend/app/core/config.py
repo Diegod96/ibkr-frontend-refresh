@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     ibkr_client_id: str = ""
     ibkr_client_secret: str = ""
 
+    # IBKR Gateway Configuration (Client Portal Gateway)
+    # Note: Port 5000 is often used by macOS AirPlay Receiver
+    # If you need to use a different port, set IBKR_GATEWAY_PORT in .env
+    ibkr_gateway_host: str = "localhost"
+    ibkr_gateway_port: int = 5001  # Changed default to avoid macOS port conflict
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string."""
